@@ -1,0 +1,34 @@
+#!/usr/bin/env ruby
+
+require 'fileutils'
+
+pid=ARGV[0]
+
+puts "Thread stacks for ruby running in process #{pid}"
+
+dump_tmp_file = "/tmp/ruby-stack-dump-#{pid}.out"
+
+
+FileUtils.rm(dump_tmp_file) if File.exists?(dump_tmp_file)
+# call rb_eval_string(\"$_old_stdout, $stdout = $stdout, File.open('#{dump_tmp_file}', 'a'); $stdout.sync = true; Thread.list.each { |t| $stdout << '\n' + t.inspect + ' backtrace\n' ; $stdout << t.backtrace.inspect ; $stdout << '\n' } ; $stdout = $_old_stdout \")
+
+dump_stack_commands = "
+call rb_eval_string(\"$_old_stdout, $stdout = $stdout, File.open('#{dump_tmp_file}', 'a'); $stdout.sync = true; Thread.list.each { |t| $stdout << '\\n' + t.inspect + ' backtrace\\n------------------------------\\n' ; $stdout << t.backtrace * '\\n' ; $stdout << '\\n\\n' } ; $stdout = $_old_stdout \")
+detach
+"
+
+gdb_command_file = "/tmp/ruby-stack-dump-gdb-commands"
+File.write(gdb_command_file, dump_stack_commands)
+
+output = `gdb --command=#{gdb_command_file} --batch ruby #{pid} 2>&1`
+
+if File.exists?(dump_tmp_file)
+  puts "Thread dump\n"
+  puts File.read dump_tmp_file
+else
+  puts "Could not find thread dump. Output from gdb\n***********\n"
+  puts output
+end
+
+puts "Killing pid #{pid}"
+`kill -11 #{pid}`

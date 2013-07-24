@@ -1,0 +1,1 @@
+ruby-thread-dump uses gdb to hook into a ruby process and print the stack trace of all live threads.
